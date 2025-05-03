@@ -1,95 +1,80 @@
 import os
-import google.generativeai as genai
-from google.genai import types
+from google import genai
+from google.generativeai.types import FunctionDeclaration
 
-
-
-# --- Define a Simple Dummy Tool ---
-# This minimal tool just exists to test if the 'tools' parameter is accepted
-dummy_declaration = types.FunctionDeclaration(
-    name='dummy_function',
-    description='A simple dummy function for testing.',
-    parameters={
-        'type': 'object',
-        'properties': {
-            'param1': {'type': 'string', 'description': 'A dummy parameter'}
-        },
-        'required': ['param1']
+# Function definition
+def get_current_weather(location: str, unit: str = "celsius"):
+    """Gets the current weather in a given location."""
+    weather_data = {
+        "location": location,
+        "temperature": 25,
+        "unit": unit,
+        "description": "Sunny",
     }
-)
-dummy_tool = types.Tool(function_declarations=[dummy_declaration])
+    return weather_data
 
-# --- Gemini API Configuration ---
-# Make sure your GEMINI_API_KEY environment variable is set correctly
+# Function schema
+get_current_weather_schema = {
+    "name": "get_current_weather",
+    "description": "Gets the current weather in a given location",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "The city and state, e.g. 'San Francisco, CA'",
+            },
+            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
+        },
+        "required": ["location"],
+    },
+}
 
-client = genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-
-
-# --- Gemini API Configuration (Corrected) ---
-# Make sure your GEMINI_API_KEY environment variable is set correctly
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    print("Error: GEMINI_API_KEY environment variable not set.")
-    exit() # Exit if API key is missing
-
-# Configure the API key globally
-genai.configure(api_key=api_key)
-
-# --- Get the Generative Model instance ---
-# You can pass tools here directly, or in the generate_content call
+# Initialize Gemini client
+genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    tools=[dummy_tool] # Pass the tools when getting the model or in generate_content
+    model_name="gemini-1.5-flash",  # or "gemini-1.5-pro"
+    tools=[FunctionDeclaration(**get_current_weather_schema)]
 )
 
-# --- Gemini API Configuration (Corrected) ---
-# Make sure your GEMINI_API_KEY environment variable is set correctly
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    print("Error: GEMINI_API_KEY environment variable not set.")
-    exit() # Exit if API key is missing
+chat = model.start_chat()
 
-# Configure the API key globally
-genai.configure(api_key=api_key)
+# Conversation loop
+while True:
+    user_prompt = input("Enter your prompt (type 'exit' to quit): ")
+    if user_prompt.lower() == 'exit':
+        break
 
-# --- Get the Generative Model instance ---
-# You can pass tools here directly, or in the generate_content call
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    tools=[dummy_tool] # Pass the tools when getting the model or in generate_content
-)
+    response = chat.send_message(user_prompt)
 
+    for part in response.parts:
+        if hasattr(part, 'function_call') and part.function_call:
+            tool_call = part.function_call
+            print(f"Model called function: {tool_call.name} with args: {tool_call.args}")
 
-# --- Attempt generate_content call with the tool ---
-try:
-    print("\nAttempting model.generate_content with 'tools' parameter...")
-    response = model.generate_content( # <--- Call generate_content directly on the model object
-        contents=[
-            types.Content(
-                role="user",
-                parts=[types.Part(text="Use the dummy function with param1='testvalue'")]
-            )
-        ]
-        # If tools were not passed when creating the model, pass them here:
-        # tools=[dummy_tool]
-    )
+            if tool_call.name == "get_current_weather":
+                try:
+                    weather_result = get_current_weather(**tool_call.args)
+                    print(f"Function execution result: {weather_result}")
 
-    print("Successfully called generate_content with 'tools'.")
+                    tool_response = chat.send_tool_output(
+                        name=tool_call.name,
+                        content=weather_result
+                    )
 
-    # Optional: Print response to see if it suggested the dummy function call
-    print("\nResponse:")
-    # You might need to check response.candidates[0].content.parts[0].function_call
-    # depending on the model's response
-    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
-         print(response.candidates[0].content)
-    else:
-        print("No content in response.")
+                    print("\nModel Response after tool output:")
+                    print(tool_response.text)
 
+                except Exception as e:
+                    print(f"Error executing function: {e}")
+                    error_response = chat.send_tool_output(
+                        name=tool_call.name,
+                        content={"error": str(e)}
+                    )
+                    print("\nModel Response after function error:")
+                    print(error_response.text)
+        else:
+            print("\nModel Response:")
+            print(part.text)
 
-except TypeError as e:
-    print(f"\nCaught an unexpected TypeError: {e}")
-    print("This is now unexpected if the client initialization is correct.")
-except Exception as e:
-    print(f"\nCaught another error: {e}")
-    import traceback
-    traceback.print_exc()
+print("\nExiting conversation.")
