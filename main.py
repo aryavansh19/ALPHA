@@ -28,7 +28,10 @@ while True:
     ]
 
     response = chat.send_message(user_prompt, config=config)
-    print(response.candidates[0].content.parts[0].function_call)
+    #print(response.candidates[0].content.parts[0].function_call)
+    print(response)
+
+
 
     # response = client.models.generate_content(
     #     model="gemini-2.0-flash", contents=contents
