@@ -6,11 +6,15 @@ from google.genai import types
 
 # --- Gemini API Configuration ---
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+chat = client.chats.create(model="gemini-2.0-flash")
 
 # --- Conversation Loop using ChatSession ---
 tools = types.Tool(function_declarations=[create_folder_schema_dict])
 config = types.GenerateContentConfig(tools=[tools])
 
+
+# response = chat.send_message("I have 2 dogs in my house.")
+# print(response.text)
 
 while True:
     user_prompt = input("Enter your prompt (type 'exit' to quit): ")
@@ -23,34 +27,15 @@ while True:
         )
     ]
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash", config=config, contents=contents
-    )
+    response = chat.send_message(user_prompt, config=config)
     print(response.candidates[0].content.parts[0].function_call)
 
+    # response = client.models.generate_content(
+    #     model="gemini-2.0-flash", contents=contents
+    # )
+    #
+    # print(response.text)
 
-    tool_call = response.candidates[0].content.parts[0].function_call
-
-    if tool_call.name == "create_folder":
-        result = create_folder(**tool_call.args)
-
-    function_response_part = types.Part.from_function_response(
-        name=tool_call.name,
-        response={"result": result},
-    )
-
-    # Append function call and result of the function execution to contents
-    contents.append(types.Content(role="model", parts=[
-        types.Part(function_call=tool_call)]))  # Append the model's function call message
-    contents.append(types.Content(role="user", parts=[function_response_part]))  # Append the function response
-
-    final_response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        config=config,
-        contents=contents,
-    )
-
-    print(final_response.text)
 
 print("\nExiting conversation.")
 
