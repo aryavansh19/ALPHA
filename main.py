@@ -5,7 +5,7 @@ from commands.folder.delete import delete_folders_schema_dict, delete_folders
 from google.generativeai.types import Tool, FunctionDeclaration
 from google.genai import types
 
-#--- Gemini API Configuration ---
+#--- Gemini API Configurations ---
 try:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     chat = client.chats.create(model="gemini-1.5-pro")
