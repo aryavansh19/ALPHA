@@ -1,6 +1,7 @@
 import os
 from google import genai
 from commands.folder.create import create_folder_schema_dict, create_folder
+from commands.folder.delete import delete_folders_schema_dict, delete_folders
 from google.generativeai.types import Tool, FunctionDeclaration
 from google.genai import types
 
@@ -13,8 +14,13 @@ except Exception as e:
     print(f"Error initializing Gemini API or during the main loop: {e}")
 
 # --- Tool Configuration ---
-tools = types.Tool(function_declarations=[create_folder_schema_dict])
-config = types.GenerateContentConfig(tools=[tools])
+tools = [types.Tool(function_declarations=[create_folder_schema_dict ,delete_folders_schema_dict])]
+#config = types.GenerateContentConfig(tools=[tools])
+config = {
+    "tools": tools,
+    "automatic_function_calling": {"disable": True}
+    # Force the model to call 'any' function, instead of chatting.
+}
 
 while True:
     user_prompt = input("Enter your prompt (type 'exit' to quit): ")
@@ -41,11 +47,24 @@ while True:
                         if location and folder_names:
                             results = create_folder(location=location, folder_names=folder_names)
                             print(f"Function execution successful. Results: {results}")
-                            #  Consider sending results back to the model
+
                         else:
                             print("Error: Missing 'location' or 'folder_names' in function arguments.")
                     except Exception as e:
                         print(f"Error executing function: {e}")
+                elif tool_call.name == "delete_folders":
+                    try:
+                        folders_to_delete = tool_call.args.get("folders_to_delete")
+                        if folders_to_delete:
+                            deletion_results = delete_folders(folders_to_delete=folders_to_delete)
+                            print(f"Function execution successful (delete_folders). Results: {deletion_results}")
+
+                        else:
+                            print("Error: Missing 'folders_to_delete' argument for delete_folders.")
+
+                    except Exception as e:
+                        print(f"Error executing delete_folders: {e}")
+
                 else:
                     print(f"Unknown function called: {tool_call.name}")
 
