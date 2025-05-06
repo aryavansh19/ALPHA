@@ -7,7 +7,7 @@ from google.genai import types
 #--- Gemini API Configuration ---
 try:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    chat = client.chats.create(model="gemini-2.0-flash")
+    chat = client.chats.create(model="gemini-1.5-pro")
 
 except Exception as e:
     print(f"Error initializing Gemini API or during the main loop: {e}")

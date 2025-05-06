@@ -2,6 +2,7 @@ import os
 
 def create_folder(location: str, folder_names: list):
     """Creates multiple folders in the specified location."""
+
     user_home = os.path.expanduser("~")
     target_path = os.path.join(user_home, location)
     created_folders = []
