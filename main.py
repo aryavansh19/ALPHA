@@ -2,19 +2,22 @@ import os
 from google import genai
 from commands.folder.create import create_folder_schema_dict, create_folder
 from commands.folder.delete import delete_folders_schema_dict, delete_folders
+from commands.folder.move import move_folders_schema_dict, move_folders
+from commands.folder.rename import rename_folders_schema_dict, rename_folders
+from core.function_router import route_function_call
 from google.generativeai.types import Tool, FunctionDeclaration
 from google.genai import types
 
 #--- Gemini API Configurations ---
 try:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    chat = client.chats.create(model="gemini-1.5-pro")
+    chat = client.chats.create(model="gemini-2.0-flash")
 
 except Exception as e:
     print(f"Error initializing Gemini API or during the main loop: {e}")
 
 # --- Tool Configuration ---
-tools = [types.Tool(function_declarations=[create_folder_schema_dict ,delete_folders_schema_dict])]
+tools = [types.Tool(function_declarations=[create_folder_schema_dict, delete_folders_schema_dict, move_folders_schema_dict, rename_folders_schema_dict])]
 #config = types.GenerateContentConfig(tools=[tools])
 config = {
     "tools": tools,
@@ -36,37 +39,19 @@ while True:
                 #print("Model Response (Text):")
                 print(first_part.text)
             elif first_part.function_call:
-                #print("Model Called Function:")
-                print(first_part.function_call)
                 tool_call = first_part.function_call
-                if tool_call.name == "create_folder":
-                    try:
-                        location = tool_call.args.get("location")
-                        folder_names = tool_call.args.get("folder_names")
+                tool_name = tool_call.name
+                print(f"Model called function: {tool_name} with args: {tool_call.args}")
 
-                        if location and folder_names:
-                            results = create_folder(location=location, folder_names=folder_names)
-                            print(f"Function execution successful. Results: {results}")
+                # Route the function call to the appropriate Python function
+                function_result = route_function_call(tool_call)
 
-                        else:
-                            print("Error: Missing 'location' or 'folder_names' in function arguments.")
-                    except Exception as e:
-                        print(f"Error executing function: {e}")
-                elif tool_call.name == "delete_folders":
-                    try:
-                        folders_to_delete = tool_call.args.get("folders_to_delete")
-                        if folders_to_delete:
-                            deletion_results = delete_folders(folders_to_delete=folders_to_delete)
-                            print(f"Function execution successful (delete_folders). Results: {deletion_results}")
+                # Handle the result from the function execution
+                print(f"Function execution result: {function_result}")
 
-                        else:
-                            print("Error: Missing 'folders_to_delete' argument for delete_folders.")
-
-                    except Exception as e:
-                        print(f"Error executing delete_folders: {e}")
-
-                else:
-                    print(f"Unknown function called: {tool_call.name}")
+                response = chat.send_message("Function Result: " + str(function_result) + "So draft small confirming message")
+                if response.text:
+                    print(f"Model response after {tool_name}: {response.text}")
 
             else:
                 print("Model response contained neither text nor a function call.")

@@ -1,80 +1,80 @@
 import os
 from google import genai
-from google.generativeai.types import FunctionDeclaration
+from commands.folder.create import create_folder_schema_dict, create_folder
+from commands.folder.delete import delete_folders_schema_dict, delete_folders
+from core.function_router import route_function_call
+from google.generativeai.types import Tool, FunctionDeclaration
+from google.genai import types
 
-# Function definition
-def get_current_weather(location: str, unit: str = "celsius"):
-    """Gets the current weather in a given location."""
-    weather_data = {
-        "location": location,
-        "temperature": 25,
-        "unit": unit,
-        "description": "Sunny",
-    }
-    return weather_data
+#--- Gemini API Configurations ---
+try:
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    chat = client.chats.create(model="gemini-1.5-pro")
 
-# Function schema
-get_current_weather_schema = {
-    "name": "get_current_weather",
-    "description": "Gets the current weather in a given location",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "location": {
-                "type": "string",
-                "description": "The city and state, e.g. 'San Francisco, CA'",
-            },
-            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]},
-        },
-        "required": ["location"],
-    },
+except Exception as e:
+    print(f"Error initializing Gemini API or during the main loop: {e}")
+
+# --- Tool Configuration ---
+tools = [types.Tool(function_declarations=[create_folder_schema_dict ,delete_folders_schema_dict])]
+#config = types.GenerateContentConfig(tools=[tools])
+config = {
+    "tools": tools,
+    "automatic_function_calling": {"disable": True}
+    # Force the model to call 'any' function, instead of chatting.
 }
 
-# Initialize Gemini client
-genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",  # or "gemini-1.5-pro"
-    tools=[FunctionDeclaration(**get_current_weather_schema)]
-)
-
-chat = model.start_chat()
-
-# Conversation loop
 while True:
     user_prompt = input("Enter your prompt (type 'exit' to quit): ")
     if user_prompt.lower() == 'exit':
         break
 
-    response = chat.send_message(user_prompt)
+    try:
+        response = chat.send_message(user_prompt, config=config)
 
-    for part in response.parts:
-        if hasattr(part, 'function_call') and part.function_call:
-            tool_call = part.function_call
-            print(f"Model called function: {tool_call.name} with args: {tool_call.args}")
+        if response.candidates and response.candidates[0].content.parts:
+            first_part = response.candidates[0].content.parts[0]
+            if first_part.text:
+                #print("Model Response (Text):")
+                print(first_part.text)
+            elif first_part.function_call:
+                #print("Model Called Function:")
+                print(first_part.function_call)
+                tool_call = first_part.function_call
+                if tool_call.name == "create_folder":
+                    try:
+                        location = tool_call.args.get("location")
+                        folder_names = tool_call.args.get("folder_names")
 
-            if tool_call.name == "get_current_weather":
-                try:
-                    weather_result = get_current_weather(**tool_call.args)
-                    print(f"Function execution result: {weather_result}")
+                        if location and folder_names:
+                            results = create_folder(location=location, folder_names=folder_names)
+                            print(f"Function execution successful. Results: {results}")
 
-                    tool_response = chat.send_tool_output(
-                        name=tool_call.name,
-                        content=weather_result
-                    )
+                        else:
+                            print("Error: Missing 'location' or 'folder_names' in function arguments.")
+                    except Exception as e:
+                        print(f"Error executing function: {e}")
+                elif tool_call.name == "delete_folders":
+                    try:
+                        folders_to_delete = tool_call.args.get("folders_to_delete")
+                        if folders_to_delete:
+                            deletion_results = delete_folders(folders_to_delete=folders_to_delete)
+                            print(f"Function execution successful (delete_folders). Results: {deletion_results}")
 
-                    print("\nModel Response after tool output:")
-                    print(tool_response.text)
+                        else:
+                            print("Error: Missing 'folders_to_delete' argument for delete_folders.")
 
-                except Exception as e:
-                    print(f"Error executing function: {e}")
-                    error_response = chat.send_tool_output(
-                        name=tool_call.name,
-                        content={"error": str(e)}
-                    )
-                    print("\nModel Response after function error:")
-                    print(error_response.text)
+                    except Exception as e:
+                        print(f"Error executing delete_folders: {e}")
+
+                else:
+                    print(f"Unknown function called: {tool_call.name}")
+
+            else:
+                print("Model response contained neither text nor a function call.")
         else:
-            print("\nModel Response:")
-            print(part.text)
+            print("No response content received from the model.")
+
+    except Exception as e:
+        print(f"An error occurred during the API call: {e}")
 
 print("\nExiting conversation.")
