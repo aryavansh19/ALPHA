@@ -1,12 +1,13 @@
 import os
 from google import genai
+from google.genai import types
+from core.function_router import route_function_call
+from google.generativeai.types import Tool, FunctionDeclaration
 from commands.folder.create import create_folder_schema_dict, create_folder
 from commands.folder.delete import delete_folders_schema_dict, delete_folders
 from commands.folder.move import move_folders_schema_dict, move_folders
 from commands.folder.rename import rename_folders_schema_dict, rename_folders
-from core.function_router import route_function_call
-from google.generativeai.types import Tool, FunctionDeclaration
-from google.genai import types
+from commands.files.create_python_file import create_python_file_schema_dict, create_python_file
 
 #--- Gemini API Configurations ---
 try:
@@ -17,12 +18,17 @@ except Exception as e:
     print(f"Error initializing Gemini API or during the main loop: {e}")
 
 # --- Tool Configuration ---
-tools = [types.Tool(function_declarations=[create_folder_schema_dict, delete_folders_schema_dict, move_folders_schema_dict, rename_folders_schema_dict])]
+tools = [types.Tool(function_declarations=
+                    [create_folder_schema_dict,
+                     delete_folders_schema_dict,
+                     move_folders_schema_dict,
+                     rename_folders_schema_dict,
+                     create_python_file_schema_dict,]
+                    )]
 #config = types.GenerateContentConfig(tools=[tools])
 config = {
     "tools": tools,
     "automatic_function_calling": {"disable": True}
-    # Force the model to call 'any' function, instead of chatting.
 }
 
 while True:
@@ -36,7 +42,6 @@ while True:
         if response.candidates and response.candidates[0].content.parts:
             first_part = response.candidates[0].content.parts[0]
             if first_part.text:
-                #print("Model Response (Text):")
                 print(first_part.text)
             elif first_part.function_call:
                 tool_call = first_part.function_call
