@@ -1,4 +1,5 @@
 import os
+import time
 from google import genai
 from google.genai import types
 from core.function_router import route_function_call
@@ -13,6 +14,7 @@ from commands.files.create_python_file import create_python_file_schema_dict, cr
 try:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     chat = client.chats.create(model="gemini-2.0-flash")
+    #chat = client.chats.create(model="gemini-2.0-flash-live-001")
 
 except Exception as e:
     print(f"Error initializing Gemini API or during the main loop: {e}")
@@ -31,6 +33,21 @@ config = {
     "automatic_function_calling": {"disable": True}
 }
 
+def execute_function_call(tool_call, chat):
+    """Execute a single function call and handle its response"""
+    tool_name = tool_call.name
+    print(f"\nExecuting function: {tool_name} with args: {tool_call.args}")
+    
+    # Route the function call to the appropriate Python function
+    function_result = route_function_call(tool_call)
+    
+    # Handle the result from the function execution
+    print(f"Function execution result: {function_result}")
+    
+    # Send result back to model and get confirmation
+    response = chat.send_message("Function Result: " + str(function_result) + ". Please continue with next step if any, or provide a confirmation message.")
+    return response
+
 while True:
     user_prompt = input("Enter your prompt (type 'exit' to quit): ")
     if user_prompt.lower() == 'exit':
@@ -38,30 +55,24 @@ while True:
 
     try:
         response = chat.send_message(user_prompt, config=config)
-
-        if response.candidates and response.candidates[0].content.parts:
+        
+        while response.candidates and response.candidates[0].content.parts:
             first_part = response.candidates[0].content.parts[0]
+            
             if first_part.text:
                 print(first_part.text)
+                break  # No more function calls to process
+                
             elif first_part.function_call:
-                tool_call = first_part.function_call
-                tool_name = tool_call.name
-                print(f"Model called function: {tool_name} with args: {tool_call.args}")
-
-                # Route the function call to the appropriate Python function
-                function_result = route_function_call(tool_call)
-
-                # Handle the result from the function execution
-                print(f"Function execution result: {function_result}")
-
-                response = chat.send_message("Function Result: " + str(function_result) + "So draft small confirming message")
-                if response.text:
-                    print(f"Model response after {tool_name}: {response.text}")
-
+                # Execute the function call
+                response = execute_function_call(first_part.function_call, chat)
+                
+                # Add a small delay between sequential operations
+                time.sleep(1)
+                
             else:
                 print("Model response contained neither text nor a function call.")
-        else:
-            print("No response content received from the model.")
+                break
 
     except Exception as e:
         print(f"An error occurred during the API call: {e}")

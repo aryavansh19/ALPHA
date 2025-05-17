@@ -1,46 +1,68 @@
 import os
-import re
+import asyncio
+import wave
 from google import genai
-from google.genai import types
 
-def create_python_file(filename: str, code_prompt: str, location: str) -> str:
-    base_user_path = r"C:\Users\aryav"
-    valid_locations = {"Desktop", "Documents", "Downloads", "Pictures"}
 
-    if location not in valid_locations:
-        return f"❌ Invalid location '{location}'. Choose from: {', '.join(valid_locations)}"
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+model = "gemini-2.0-flash-live-001" # Or "gemini-1.5-flash-latest" or similar
 
-    if not filename.endswith(".py"):
-        filename += ".py"
+config = {"response_modalities": ["AUDIO"]}
 
-    file_path = os.path.join(base_user_path, location, filename)
-    code_prompt += " JUST GIVE PYTHON CODE WITH MAIN FUNCTION AND WRITE EVERYTHING EXTRA IN COMMENTS"
-
+async def main():
+    print("Connecting to live session...")
     try:
-        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[code_prompt]
-        )
+        async with client.aio.live.connect(model=model, config=config) as session:
+            print("Session connected.")
 
-        if response.text:
-            generated_code = response.text
 
-            # Remove ```python and ``` markers using regular expressions
-            cleaned_code = re.sub(r"^\s*```(?:python)?\s*", "", generated_code, flags=re.MULTILINE)
-            cleaned_code = re.sub(r"\s*```\s*$", "", cleaned_code, flags=re.MULTILINE)
+            wf = wave.open("audio.wav", "wb")
+            wf.setnchannels(1)       # Mono
+            wf.setsampwidth(2)       # 2 bytes = 16 bits
+            wf.setframerate(24000)   # 24 kHz
 
-            # Remove leading/trailing empty lines
-            cleaned_code = cleaned_code.strip()
+            message = "Hello? Gemini are you there?"
+            print(f"Sending message: '{message}'")
+            await session.send_client_content(
+                turns={"role": "user", "parts": [{"text": message}]}, turn_complete=True
+            )
+            print("Message sent. Receiving audio...")
 
-            with open(file_path, "w") as f:
-                f.write(cleaned_code)
-            return f"✅ Python file '{filename}' created at {location} with generated code."
-        else:
-            return "❌ Error: No code generated."
+            audio_data_received = False
+            # Corrected loop - use standard async for loop
+            async for response in session.receive():
+                # Check if the response contains audio data
+                if response.data is not None:
+                    wf.writeframes(response.data)
+                    audio_data_received = True
+                    # Optional: Add a print statement to see data arrival
+                    # print(".", end="", flush=True) # Print dots as data comes
 
+                #Un-comment this code to print audio data info if needed
+                if response.server_content.model_turn is not None:
+                     for part in response.server_content.model_turn.parts:
+                         if part.inline_data:
+                             print(f"\nReceived mime type: {part.inline_data.mime_type}")
+                             break # Assume one audio part per turn
+
+            print("\nFinished receiving responses.")
+
+            # Close the WAV file
+            wf.close()
+            print("Audio saved to audio.wav")
+
+            if not audio_data_received:
+                print("Warning: No audio data was received from the API.")
+
+
+    except NameError:
+        print("Error: async_enumerate is not defined. Please use 'async for'.")
     except Exception as e:
-        return f"❌ Failed to generate and create Python file: {e}"
+        print(f"An error occurred: {e}")
+        # In case of error, ensure the file is closed if it was opened
+        if 'wf' in locals() and not wf.closed:
+             wf.close()
 
 
-create_python_file("fibo", "Write a function that takes a number n as input and returns the nth Fibonacci number.", "Desktop")
+if __name__ == "__main__":
+    asyncio.run(main())
