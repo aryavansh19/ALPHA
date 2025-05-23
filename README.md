@@ -1,11 +1,11 @@
-# ALPHA: Gemini-Powered Python Assistant 🤖
+# ALPHA: Python Assistant 🤖
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg?style=flat&logo=python)](https://www.python.org/)
 [![Google Gemini API](https://img.shields.io/badge/Powered%20by-Gemini-orange.svg?style=flat&logo=google)](https://ai.google.dev/gemini)
 [![Rich Terminal](https://img.shields.io/badge/Terminal%20UI-Rich-brightgreen.svg?style=flat&logo=python)](https://github.com/Textualize/rich)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ## ✨ Introduction
 
-**ALPHA** is an intelligent, conversational AI assistant designed to simplify your daily computing and web tasks through natural language commands. Powered by **Google's Gemini Pro 1.5** (or `gemini-2.0-flash` as configured in your code) and leveraging a robust function-calling mechanism, ALPHA acts as your personal command-line interface, automating common operations on your local machine and interacting with web services.
+**ALPHA** is an intelligent, conversational AI assistant designed to simplify your daily computing and web tasks through natural language commands. Leveraging a robust function-calling mechanism, ALPHA acts as your personal command-line interface, automating common operations on your local machine and interacting with web services.
 
 Say goodbye to complex commands and hello to intuitive, human-like interaction!
 
