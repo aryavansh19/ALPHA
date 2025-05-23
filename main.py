@@ -14,7 +14,46 @@ from commands.website.open_website import open_website_schema_dict, open_website
 from commands.webautomation.youtube_Automation import open_youtube_trending_schema_dict
 from commands.webautomation.web_scrapper import scrape_website_content_schema_dict
 from commands.webautomation.gehu_Automation import open_gehu_btech_notice_and_return_content_schema_dict
-#--- Gemini API Configurations ---
+import torch
+from transformers import T5Tokenizer, T5ForConditionalGeneration
+import os
+
+
+class CommandParser:
+    def __init__(self, model_path=None):
+        if model_path is None:
+            model_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), "command_model")
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.tokenizer = T5Tokenizer.from_pretrained(model_path, local_files_only=True)
+        self.model = T5ForConditionalGeneration.from_pretrained(model_path, local_files_only=True)
+        self.model.to(self.device)
+        self.model.eval()
+
+    def parse_command(self, text):
+        # Tokenize input
+        inputs = self.tokenizer(
+            text,
+            max_length=128,
+            padding='max_length',
+            truncation=True,
+            return_tensors="pt"
+        ).to(self.device)
+
+        # Generate output
+        with torch.no_grad():
+            outputs = self.model.generate(
+                inputs["input_ids"],
+                max_length=128,
+                num_beams=4,
+                early_stopping=True
+            )
+
+        # Decode output
+        generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return generated_text
+
+
 try:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     chat = client.chats.create(model="gemini-2.0-flash")

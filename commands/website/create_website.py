@@ -6,22 +6,11 @@ from commands.website.open_website import open_website
 from google.genai import types
 
 # --- Configuration ---
-BASE_WEBSITE_DIR = os.path.join(os.path.expanduser("~"), "GeminiWebsites")
+BASE_WEBSITE_DIR = os.path.join(os.path.expanduser("~"), "Websites")
 os.makedirs(BASE_WEBSITE_DIR, exist_ok=True) # Ensure base directory exists
 
 # --- MODIFIED FUNCTION: folder_path parameter removed ---
 def create_website(website_name: str = None, content: str = None) -> dict:
-    """
-    Creates a new website folder in the default location (user's GeminiWebsites directory)
-    and an index.html file inside it. Automatically opens the created website in the default browser.
-
-    Args:
-        website_name (str): The name of the website folder (e.g., "my_new_site").
-        content (str): The HTML content for the index.html file. If None, a default template is used.
-    Returns:
-        dict: A dictionary indicating success, a message, and the path to index.html,
-              and also information about the attempt to open the website.
-    """
     if website_name is None:
         return {"success": False, "message": "Website name is required.", "path": None}
 
@@ -59,7 +48,7 @@ def create_website(website_name: str = None, content: str = None) -> dict:
             Welcome to <span class="text-yellow-300">{website_name.replace('_', ' ').title()}</span>!
         </h1>
         <p class="text-lg md:text-xl mb-6">
-            This is a simple website created using Gemini's function calling.
+            This is a simple website created using model function calling.
         </p>
         <div class="flex flex-wrap justify-center gap-4">
             <a href="#" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg shadow-lg transform transition duration-300 hover:scale-105">
@@ -99,7 +88,7 @@ def create_website(website_name: str = None, content: str = None) -> dict:
 # --- MODIFIED SCHEMA: folder_path parameter removed ---
 create_website_schema_dict = types.FunctionDeclaration(
     name="create_website",
-    description="Creates a new folder and an index.html file inside it for a website in the default 'GeminiWebsites' folder in your user directory, and automatically opens it.",
+    description="Creates a new folder and an index.html file inside it for a website in the default 'Websites' folder in your user directory, and automatically opens it.",
     parameters=types.Schema(
         type=types.Type.OBJECT,
         properties={
@@ -109,7 +98,7 @@ create_website_schema_dict = types.FunctionDeclaration(
             ),
             "content": types.Schema(
                 type=types.Type.STRING,
-                description="Optional HTML content for the index.html file. If not provided, a default template will be used. This parameter is typically filled by Gemini's generation based on user's prompt."
+                description="Optional HTML content for the index.html file. If not provided, a default template will be used. This parameter is typically filled by model's generation based on user's prompt."
             )
         },
         required=["website_name"]

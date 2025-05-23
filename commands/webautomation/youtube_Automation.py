@@ -16,7 +16,7 @@ from google.genai import types
 
 
 def get_webdriver():
-    """Initializes and returns a Chrome WebDriver using Selenium Manager."""
+
     try:
         # Selenium Manager will automatically find and manage the ChromeDriver.
         service = ChromeService()  # No path needed for automatic management
