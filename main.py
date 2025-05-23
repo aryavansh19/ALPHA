@@ -1,4 +1,5 @@
 import os
+import json
 from google import genai
 from google.genai import types
 from core.function_router import route_function_call
@@ -8,7 +9,11 @@ from commands.folder.delete import delete_folders_schema_dict, delete_folders
 from commands.folder.move import move_folders_schema_dict, move_folders
 from commands.folder.rename import rename_folders_schema_dict, rename_folders
 from commands.files.create_python_file import create_python_file_schema_dict, create_python_file
-
+from commands.website.create_website import create_website_schema_dict, create_website
+from commands.website.open_website import open_website_schema_dict, open_website
+from commands.webautomation.youtube_Automation import open_youtube_trending_schema_dict
+from commands.webautomation.web_scrapper import scrape_website_content_schema_dict
+from commands.webautomation.gehu_Automation import open_gehu_btech_notice_and_return_content_schema_dict
 #--- Gemini API Configurations ---
 try:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -24,13 +29,46 @@ tools = [types.Tool(function_declarations=
                      delete_folders_schema_dict,
                      move_folders_schema_dict,
                      rename_folders_schema_dict,
-                     create_python_file_schema_dict,]
+                     create_python_file_schema_dict,
+                     create_website_schema_dict,
+                     open_website_schema_dict,
+                     open_youtube_trending_schema_dict,
+                     scrape_website_content_schema_dict,
+                     open_gehu_btech_notice_and_return_content_schema_dict,]
                     )]
 #config = types.GenerateContentConfig(tools=[tools])
 config = {
     "tools": tools,
     "automatic_function_calling": {"disable": True}
 }
+
+def handle_website_creation_follow_up(created_website_path: str) -> types.Part:
+    """
+    Asks the user if they want to open the newly created website
+    and executes the open_website command if confirmed.
+    Returns the result of the open_website call as a types.Part for Gemini.
+    """
+    print("\nAssistant: Website created successfully. Do you want to open it now? (yes/no)")
+    user_wants_to_open = input("Your choice: ").strip().lower()
+
+    if user_wants_to_open == 'yes' or user_wants_to_open == 'y':
+        print("Assistant: Okay, attempting to open the website...")
+        open_website_call_object = types.FunctionCall(
+            name='open_website',
+            args={'index_html_path': created_website_path}
+        )
+        open_website_result = route_function_call(open_website_call_object)
+        print(f"Function execution result (open_website): {open_website_result}")
+        return types.Part.from_function_result(
+            name='open_website',
+            response=json.dumps(open_website_result)
+        )
+    else:
+        print("Assistant: Okay, I won't open the website for now.")
+        # Return an empty part or a message indicating no action for Gemini if needed
+        # For simplicity, if not opened, we don't send a separate Part for 'open_website'
+        return None
+
 
 while True:
     user_prompt = input("Enter your prompt (type 'exit' to quit): ")
