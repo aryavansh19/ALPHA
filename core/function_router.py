@@ -10,14 +10,14 @@ def route_function_call(function_call):
     func_name = function_call.name
 
     args = function_call.args
-    print(f"Attempting to route and execute function: {func_name} with args: {args}")
+    #print(f"Attempting to route and execute function: {func_name} with args: {args}")
 
     if func_name in executable_functions:
         try:
             func_to_run = executable_functions[func_name]
 
             result = func_to_run(**args)
-            print(f"Function '{func_name}' executed successfully.")
+            #print(f"Function '{func_name}' executed successfully.")
             return result
 
         except TypeError as e:
